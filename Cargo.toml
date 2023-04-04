@@ -1,0 +1,42 @@
+[package]
+name = "junkmart"
+version = "0.1.0"
+authors = ["Nick Vathis <nvathis@gmail.com>"]
+edition = "2021"
+publish = false
+resolver = "2"
+
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[features]
+dev = ["bevy/bevy_dylib"]
+
+default = ["bevy/animation", "bevy/bevy_asset", "bevy/bevy_scene", "bevy/bevy_winit", "bevy/bevy_core_pipeline", "bevy/bevy_pbr", "bevy/bevy_gltf", "bevy/bevy_render", "bevy/bevy_sprite", "bevy/bevy_text", "bevy/bevy_ui", "bevy/png", "bevy/hdr", "bevy/zstd", "bevy/x11", "bevy/ktx2", "bevy/filesystem_watcher", "bevy/tonemapping_luts"]
+
+[dependencies]
+bevy = { version = "0.10", default-features = false }
+bevy_kira_audio = { version = "0.15" }
+bevy_asset_loader = { version = "0.16.0" }
+rand = { version = "0.8.3" }
+
+winit = { version = "0.28", default-features = false }
+image = { version = "0.24", default-features = false }
+bevy-inspector-egui = "0.18.3"
+bevy_egui = "0.20.2"
+bevy_tweening = "0.7.0"
+
+[build-dependencies]
+embed-resource = "2.1.1"

@@ -4,4 +4,10 @@ This is a place where you can find anything! Well, I am the one to find it. You 
 
 ## Gameplay
 
-This is a goofy game of memory. Sort of. Orders arrive, and you try to service them by remembering where that stupid little thing is hiding. Visit the tutorial for more!
+This is a goofy game of memory. Sort of. Orders arrive, and you try to service them by remembering where that stupid little thing is hiding. Beware though, each day the boxes change location!
+
+Visit the tutorial for more...
+
+## References
+
+* https://github.com/NiklasEi/bevy_game_template
