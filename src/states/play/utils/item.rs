@@ -1,3 +1,5 @@
+use bevy::utils::HashSet;
+
 use rand::{prelude::*, seq::SliceRandom};
 
 use super::{
@@ -8,7 +10,7 @@ use super::{
     }
 };
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Item
 {
     Barrel,
@@ -25,10 +27,23 @@ fn random_money(base: i32) -> Money
 
 impl Item
 {
-    pub fn new_random() -> Self
+    pub fn new_random(turn: i32, prev_item: Option<Item>) -> Self
     {
         use Item::*;
-        *[Barrel, Burger, Gun, Pill, Screwdriver].choose(&mut thread_rng()).unwrap()
+        let items: &[Item] = match turn {
+            1..=5 => &[Burger, Screwdriver],
+            6..=20 => &[Burger, Screwdriver, Gun, Pill],
+            21 => &[Barrel],
+            _ => &[Burger, Screwdriver, Gun, Pill]
+        };
+
+        let mut set: HashSet<Item> = items.into_iter().copied().collect();
+
+        if let Some(item) = prev_item {
+            set.remove(&item);
+        }
+
+        set.into_iter().choose(&mut thread_rng()).unwrap()
     }
 
     pub fn request(&self) -> &'static str
@@ -65,7 +80,7 @@ impl Item
         let base = match self {
             Barrel => 8_000_000,
             Burger => 10,
-            Gun => 100,
+            Gun => 300,
             Pill => 400,
             Screwdriver => 10
         };
@@ -150,5 +165,38 @@ impl Item
                 _ => panic!()
             }
         }
+
+    }
+
+    pub fn global_side_effect(&self) -> Option<&'static str>
+    {
+        use Item::*;
+
+        let choices: &[&'static str] = match self {
+            Barrel => &[
+            ],
+            Burger => &[
+                "A food poisoning epidemic ravages restaurant that feeds the homeless, junk food is to blame.",
+                "A person died from a rare strain of streptococcus found in a burger.",
+                "Food inspection closes luxurious restaurant after maggots found in burgers."
+            ],
+            Gun => &[
+                "Ten killed in the largest mass shooting our small town has ever seen.",
+                "Armed burglars take all valuables from jewellery store, see more on page 10.",
+                "Illegal hunting skyrockets as hunters with revoked licenses find new source of illegal guns."
+            ],
+            Pill => &[
+                "Horde of addicts storm police station, fatalities at five and still counting!",
+                "CEO of large company overdosed on unidentified drugs, read page 5 for more!",
+                "Mysterious drug completely cures patient from both cancer and AIDS, scientists baffled, drug is impossible to recreate!"
+            ],
+            Screwdriver => &[
+                "Rapist with screwdriver shot and killed before he could commit more atrocities!",
+                "Gun that shoots screwdrivers is the murder weapon, experts say!",
+                "A Rube-Goldberg machine created entirely of screwdrivers falls on the head of the police chief, patrols are doubled!"
+            ],
+        };
+
+        choices.choose(&mut thread_rng()).copied()
     }
 }

@@ -33,6 +33,10 @@ pub struct AssetList
 #[derive(Default, Resource)] pub struct NewsFeed(pub VecDeque<RichText>);
 #[derive(Default, Resource)] pub struct ActiveItem(pub Option<(Item, Entity)>);
 #[derive(Default, Resource)] pub struct RequestedItem(pub Option<(String, Item)>);
+#[derive(Default, Resource)] pub struct PrevRequestedItem(pub Option<Item>);
+#[derive(Default, Resource)] pub struct Turn(pub i32);
+#[derive(Default, Resource)] pub struct GlobalNews(pub VecDeque<String>);
+#[derive(Default, Resource)] pub struct WarNews(pub VecDeque<String>);
 #[derive(Clone, Copy, Default, Resource)] pub struct Money(i32);
 
 impl Money { pub fn new(x: i32) -> Self { Money(x) } }
@@ -50,6 +54,10 @@ pub fn init_resources(app: &mut App)
         .init_resource::<NewsFeed>()
         .init_resource::<ActiveItem>()
         .init_resource::<RequestedItem>()
+        .init_resource::<PrevRequestedItem>()
+        .init_resource::<Turn>()
+        .init_resource::<GlobalNews>()
+        .init_resource::<WarNews>()
         .insert_resource::<Money>(Money(1000))
     ;
 }
