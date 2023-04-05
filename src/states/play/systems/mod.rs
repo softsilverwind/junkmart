@@ -1,3 +1,8 @@
+use std::{
+    f32::consts::PI,
+    iter
+};
+
 use bevy::{
     prelude::*,
     pbr::AmbientLight,
@@ -5,18 +10,39 @@ use bevy::{
     input::mouse::MouseButtonInput
 };
 use bevy_egui::{
-    EguiContexts, egui
+    EguiContexts, egui::{self, RichText, Color32}
 };
 use bevy_tweening::Animator;
 
 use super::{
-    resources::{AssetList, WidgetSize, Chests, HoveredChest, Instructions, Instruction},
-    utils
+    GameState,
+    components::Rotate,
+    events::{NewsFeedUpdate, NewsLevel},
+    resources::{AssetList, Chests, HoveredChest, Instructions, NewsFeed},
+    utils::{self, item::Item}
 };
 
 pub mod instructions;
 
-pub fn set_default_font(mut contexts: EguiContexts)
+use instructions::Instruction;
+
+pub fn add_systems(app: &mut App)
+{
+    instructions::add_instruction_systems(app);
+
+    app
+        .add_system(set_default_font.in_schedule(OnEnter(GameState::Play)))
+        .add_system(spawn_level.in_schedule(OnEnter(GameState::Play)))
+        .add_system(initialize_newsfeed.in_schedule(OnEnter(GameState::Play)))
+        .add_system(update_newsfeed.in_set(OnUpdate(GameState::Play)))
+        .add_system(write_newsfeed.in_set(OnUpdate(GameState::Play)))
+        .add_system(mouse_move.in_set(OnUpdate(GameState::Play)))
+        .add_system(mouse_click.in_set(OnUpdate(GameState::Play)))
+        .add_system(rotate.in_set(OnUpdate(GameState::Play)))
+    ;
+}
+
+fn set_default_font(mut contexts: EguiContexts)
 {
     let ctx = contexts.ctx_mut();
     let mut style = (*ctx.style()).clone();
@@ -26,46 +52,34 @@ pub fn set_default_font(mut contexts: EguiContexts)
     ctx.set_style(style);
 }
 
-pub fn populate_side_panel(
-    mut contexts: EguiContexts,
-    mut widget_size: ResMut<WidgetSize>
-)
-{
-    let ctx = contexts.ctx_mut();
-
-    widget_size.0 = egui::TopBottomPanel::bottom("bottom_panel")
-        .height_range(50.0..=300.0)
-        .default_height(150.0)
-        .resizable(true)
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                ui.label("Tutorial:");
-                ui.label("I hear you inherited this junkyard and decided to sell whatever is inside! Good for you! You should click a box to see what is inside!");
-                ui.label("Damn, son, I can see that you no longer have money to pay me! You are on your own, bye!");
-            });
-        })
-        .response
-        .rect
-        .height();
-}
-
-pub fn spawn_level(
+fn spawn_level(
     mut commands: Commands,
     assets: Res<AssetList>,
     mut ambient_light: ResMut<AmbientLight>,
     mut chests: ResMut<Chests>
 )
 {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, -8.0, 17.0).looking_at(Vec3::ZERO, Vec3::Y),
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            color: Color::WHITE,
+            intensity: 40.0,
+            range: 6.0,
+            radius: 0.1,
+            shadows_enabled: false,
+            ..default()
+        },
+        ..default()
+    })
+    .insert(Camera3dBundle {
+        transform: *utils::CAMERA_REST_POS,
         ..default()
     });
 
     let point_light = PointLight {
         color: Color::WHITE,
-        intensity: 20.0,
+        intensity: 40.0,
         range: 10.0,
-        radius: 0.1,
+        radius: 0.5,
         shadows_enabled: true,
         ..default()
     };
@@ -73,7 +87,7 @@ pub fn spawn_level(
     ambient_light.color = Color::WHITE;
     ambient_light.brightness = 0.10;
 
-    // Ideally I would search for light objects on the scene.
+    // Ideally search for lamp objects on the scene.
 
     let light_pos = [
         Vec3::new(-4.0, 2.0, 3.5),
@@ -98,6 +112,13 @@ pub fn spawn_level(
         })
         .insert(Name::new("Level"));
 
+    let mut items: Vec<Item> =
+        iter::once(Item::Barrel).cycle().take(2)
+        .chain(iter::once(Item::Burger).cycle().take(6))
+        .chain(iter::once(Item::Gun).cycle().take(3))
+        .chain(iter::once(Item::Pill).cycle().take(3))
+        .chain(iter::once(Item::Screwdriver).cycle().take(6))
+        .collect();
 
     for x in 0..5 {
         for y in 0..4 {
@@ -108,12 +129,67 @@ pub fn spawn_level(
             })
             .id();
 
-            chests.0.insert((x, y), (id, super::resources::Item::Gun));
+            chests.0.insert((x, y), (id, items.pop().unwrap()));
         }
     }
 }
 
-pub fn mouse_click(
+fn initialize_newsfeed(
+    mut ev_news: EventWriter<NewsFeedUpdate>,
+)
+{
+    ev_news.send(NewsFeedUpdate(NewsLevel::EXTERNAL, "News Flash: The local junkyard has a new owner! Maybe now our little town will forget the tragic demise of the previous owner...".to_string()));
+    ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, "It is my honor to welcome my new employer! My name is Trevor Utorial! With any luck, we can redouble the $1000 in your pocket within three days! We should probably write down the inventory before opening shop! Bring a crate to the front to see what is inside!".to_string()));
+}
+
+fn update_newsfeed(
+    mut ev_news: EventReader<NewsFeedUpdate>,
+    mut news_feed: ResMut<NewsFeed>
+)
+{
+    const MAX_LEN: usize = 20;
+    for NewsFeedUpdate(level, text) in ev_news.iter() {
+        let color = match level {
+            NewsLevel::EXTERNAL => Color32::GRAY,
+            NewsLevel::EVENT => Color32::WHITE,
+            NewsLevel::CORRECT => Color32::GREEN,
+            NewsLevel::WRONG => Color32::RED
+        };
+
+        news_feed.0.push_back(RichText::new(text).color(color));
+    }
+
+    let len = news_feed.0.len();
+    if len > MAX_LEN {
+        news_feed.0.drain(0..(len - MAX_LEN));
+    }
+}
+
+fn write_newsfeed(
+    mut contexts: EguiContexts,
+    ev_news: EventReader<NewsFeedUpdate>,
+    newsfeed: Res<NewsFeed>
+)
+{
+    let ctx = contexts.ctx_mut();
+
+    egui::TopBottomPanel::bottom("bottom_panel")
+        .height_range(50.0..=300.0)
+        .default_height(150.0)
+        .resizable(true)
+        .show(ctx, |ui| {
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                for text in newsfeed.0.iter() {
+                    let response = ui.label(text.clone());
+                    if ev_news.len() > 0 {
+                        response.scroll_to_me(None);
+                    }
+                }
+            });
+        });
+}
+
+fn mouse_click(
     mut instructions: ResMut<Instructions>,
     mut hovered_chest: ResMut<HoveredChest>,
     mut mouse_button_input_events: EventReader<MouseButtonInput>
@@ -129,12 +205,17 @@ pub fn mouse_click(
 
     if let Some(pos) = hovered_chest.0 {
         instructions.0.push_back(Instruction::SwapWithFirst(pos));
-        instructions.0.push_back(Instruction::Wait(1.0));
+        instructions.0.push_back(Instruction::CameraToFirstChest);
+        instructions.0.push_back(Instruction::PresentItem);
+        instructions.0.push_back(Instruction::HandleEffects);
+        instructions.0.push_back(Instruction::HideItem);
+        instructions.0.push_back(Instruction::CameraToRest);
+        instructions.0.push_back(Instruction::EndOfTurn);
         hovered_chest.0 = None;
     }
 }
 
-pub fn mouse_move(
+fn mouse_move(
     mut commands: Commands,
     windows: Query<&Window>,
     cameras: Query<(&Camera, &GlobalTransform)>,
@@ -165,12 +246,12 @@ pub fn mouse_move(
             if pos == newpos { return; }
             let old_chest = chests.0[&pos].0;
             let start = objects.get_mut(old_chest).unwrap().translation;
-            commands.entity(old_chest).insert(Animator::new(utils::lift(start, 0.0)));
+            commands.entity(old_chest).insert(Animator::new(utils::tween::lift(start, 0.0, 100)));
         }
 
         let new_chest = chests.0[&newpos].0;
         let start = objects.get(new_chest).unwrap().translation;
-        commands.entity(new_chest).insert(Animator::new(utils::lift(start, 0.5)));
+        commands.entity(new_chest).insert(Animator::new(utils::tween::lift(start, 0.5, 100)));
 
         hovered_chest.0 = Some(newpos);
     }
@@ -178,8 +259,20 @@ pub fn mouse_move(
         if let Some(pos) = hovered_chest.0 {
             let old_chest = chests.0[&pos].0;
             let start = objects.get_mut(old_chest).unwrap().translation;
-            commands.entity(old_chest).insert(Animator::new(utils::lift(start, 0.0)));
+            commands.entity(old_chest).insert(Animator::new(utils::tween::lift(start, 0.0, 100)));
             hovered_chest.0 = None;
         }
+    }
+}
+
+fn rotate(
+    mut query: Query<&mut Transform, With<Rotate>>,
+    time: Res<Time>
+)
+{
+    let angle = time.delta_seconds() * 2.0 * PI;
+
+    for mut transform in query.iter_mut() {
+        transform.rotate(Quat::from_rotation_z(angle))
     }
 }
