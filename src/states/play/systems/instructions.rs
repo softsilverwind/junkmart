@@ -1,16 +1,24 @@
 use std::iter;
 
+use rand::{prelude::*, seq::SliceRandom};
 use bevy::prelude::*;
 use bevy_tweening::Animator;
 
-use crate::states::{
-    GameState,
-    play::{
-        components::Rotate,
-        events::{NewsFeedUpdate, NewsLevel},
-        resources::{Instructions, Chests, ActiveItem, AssetList, RequestedItem, Money, StatusEffects, Turn, PrevRequestedItem, GlobalNews, WarNews},
-        utils::{self, item::Item, StatusEffect}
-    }
+use crate::{
+    states::{
+        GameState,
+        play::{
+            components::{Rotate, PointerLight},
+            events::{NewsFeedUpdate, NewsLevel},
+            resources::{
+                Instructions, Chests, ActiveItem, AssetList, RequestedItem, Money,
+                StatusEffects, CustomerNumber, PrevRequestedItem, GlobalNews, WarNews,
+                War
+            },
+            utils::{self, item::Item, StatusEffect}
+        }
+    },
+    plugins::post_process::{PostProcessingMaterial, PostProcessConfig}
 };
 
 #[derive(Debug)]
@@ -23,6 +31,7 @@ pub enum Instruction
     PresentItem,
     HideItem,
     HandleEffects,
+    HandleStatusEffects,
     EndOfTurn
 }
 
@@ -35,6 +44,7 @@ pub fn add_instruction_systems(app: &mut App)
         .add_system(camera_to_rest.in_set(OnUpdate(GameState::Play)))
         .add_system(present_item.in_set(OnUpdate(GameState::Play)))
         .add_system(hide_item.in_set(OnUpdate(GameState::Play)))
+        .add_system(handle_status_effects.in_set(OnUpdate(GameState::Play)))
         .add_system(handle_effects.in_set(OnUpdate(GameState::Play)))
         .add_system(end_of_turn.in_set(OnUpdate(GameState::Play)))
     ;
@@ -80,11 +90,11 @@ fn swap_with_first(
 fn camera_to_first(
     mut commands: Commands,
     mut instructions: ResMut<Instructions>,
-    cameras: Query<Entity, With<Camera>>
+    cameras: Query<Entity, With<Camera3d>>
 )
 {
     let Some(Instruction::CameraToFirstChest) = instructions.0.front() else { return };
-    let camera = cameras.get_single().unwrap();
+    let camera = cameras.single();
 
     commands.entity(camera).insert(Animator::new(utils::tween::camera_to_first_chest()));
 
@@ -94,11 +104,11 @@ fn camera_to_first(
 fn camera_to_rest(
     mut commands: Commands,
     mut instructions: ResMut<Instructions>,
-    cameras: Query<Entity, With<Camera>>
+    cameras: Query<Entity, With<Camera3d>>
 )
 {
     let Some(Instruction::CameraToRest) = instructions.0.front() else { return };
-    let camera = cameras.get_single().unwrap();
+    let camera = cameras.single();
 
     commands.entity(camera).insert(Animator::new(utils::tween::camera_to_rest()));
 
@@ -171,10 +181,12 @@ fn handle_effects(
     mut money: ResMut<Money>,
     mut status_effects: ResMut<StatusEffects>,
     mut chests: ResMut<Chests>,
-    mut turn: ResMut<Turn>,
     mut war_news: ResMut<WarNews>,
+    mut war: ResMut<War>,
 )
 {
+    let mut rng = thread_rng();
+
     let Some(Instruction::HandleEffects) = instructions.0.front() else { return };
 
     let Some((item, _)) = active_item.0 else { bevy::log::error!("Unreachable point reached!"); return };
@@ -199,15 +211,15 @@ fn handle_effects(
         response += &format!("Success! You found a box of {}, as the customer requested! They paid you {}!", item.found(), gain);
         response += &format!(" Your new balance is {}.", *money);
         prev_item.0 = Some(item);
-        requested_item.0 = None;
-        if turn.0 == 21 {
-            war_news.0.push_back("Dirty bomb exploded in nearby large city, countries blame each other!".to_string());
-            war_news.0.push_back("Our country retaliates with nukes!".to_string());
+        if item == Item::Barrel {
+            war_news.0.push_back("Dirty bomb exploded in the capital of neigboring country, they blame our army!".to_string());
+            war_news.0.push_back("Our country retaliates with nukes! For the motherland!".to_string());
             war_news.0.push_back("World war! Every country launches nukes to everyone!".to_string());
             war_news.0.push_back("Seriously, stop playing. You destroyed the world. Mankind is not the same anymore. You are a millionaire in a world where money has no meaning. Sleep tight.".to_string());
  
-            turn.0 += 1;
+            war.0 = true;
         }
+        requested_item.0 = None;
         NewsLevel::CORRECT
     } else {
         let (text, side_effect) = item.side_effect();
@@ -223,7 +235,7 @@ fn handle_effects(
             }
             utils::SideEffect::StatusEffectEnable(effect, turns) => { status_effects.0.insert(effect, turns); },
             utils::SideEffect::CureDiarrhea => if status_effects.0.remove(&StatusEffect::Diarrhea).is_some() {
-                response += " Your diarrhea was cured!";
+                response += " Your diarrhea was cured! The power of Imodium will turn the hands of fate!";
             },
             utils::SideEffect::ToggleCancer => {
                 if status_effects.0.remove(&StatusEffect::Cancer).is_some() {
@@ -245,11 +257,13 @@ fn handle_effects(
                     .chain(iter::once(Item::Screwdriver).cycle().take(6))
                     .collect();
 
-                    for x in 0..5 {
-                        for y in 0..4 {
-                            chests.0.get_mut(&(x, y)).unwrap().1 = items.pop().unwrap();
-                        }
+                items.shuffle(&mut rng);
+
+                for x in 0..5 {
+                    for y in 0..4 {
+                        chests.0.get_mut(&(x, y)).unwrap().1 = items.pop().unwrap();
                     }
+                }
             },
         }
         NewsLevel::WRONG
@@ -261,6 +275,99 @@ fn handle_effects(
     *instructions.0.front_mut().unwrap() = Instruction::Wait(2.0);
 }
 
+fn handle_status_effects(
+    mut instructions: ResMut<Instructions>,
+    mut status_effects: ResMut<StatusEffects>,
+    mut ev_news: EventWriter<NewsFeedUpdate>,
+    mut requested_item: ResMut<RequestedItem>,
+    mut lights: Query<&mut PointLight, (Without<Camera>, Without<PointerLight>)>,
+    mut pointer_light: Query<&mut PointLight, With<PointerLight>>,
+    mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
+    post_process_config: Res<PostProcessConfig>
+)
+{
+    let Some(Instruction::HandleStatusEffects) = instructions.0.front() else { return };
+
+    let mut rng = thread_rng();
+
+    let mut deletions = Vec::new();
+    for (status_effect, turns) in status_effects.0.iter_mut() {
+        *turns -= 1;
+        if *turns < 0 {
+            deletions.push(*status_effect);
+            continue;
+        }
+
+        match status_effect {
+            StatusEffect::LightsOut => {
+                for mut light in lights.iter_mut() {
+                    light.intensity = 0.0;
+                }
+                pointer_light.single_mut().intensity = utils::POINTER_LIGHT.intensity;
+            }
+            StatusEffect::Trippy => {
+                let post_process_mat = post_processing_materials.get_mut(&post_process_config.material_handle).unwrap();
+                post_process_mat.is_trippy = true;
+            },
+            _ => ()
+        }
+    }
+
+    for del in deletions {
+        status_effects.0.remove(&del);
+        match del {
+            StatusEffect::LightsOut => {
+                for mut light in lights.iter_mut() {
+                    light.intensity = utils::POINT_LIGHT.intensity;
+                }
+                pointer_light.single_mut().intensity = 0.0;
+                ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, "Finally, the power is back!".to_string()));
+            }
+            StatusEffect::Trippy => {
+                let post_process_mat = post_processing_materials.get_mut(&post_process_config.material_handle).unwrap();
+                post_process_mat.is_trippy = false;
+                ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, "Your vision is back to normal!".to_string()));
+            }
+            StatusEffect::Diarrhea => {
+                ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, "Your stomach feels better!".to_string()));
+            }
+            StatusEffect::Cancer => {
+                ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, format!("You mean to tell me that you played the game for {} turns. Suuuure buddy, sure you did. I'm not mad though, it means one of three things: a)  You scripted the game for {} turns (lol), b) cheated or c) read the source code. In all cases, thank you for giving my little game such interest. You are the real winner of this game, and you may screenshot this text as proof of your achievement!", i32::MAX, i32::MAX).to_string()));
+            }
+        }
+    }
+
+    if status_effects.0.contains_key(&StatusEffect::Diarrhea) {
+        if requested_item.0.is_some() {
+            if rng.gen_range(0..=10) > 7 {
+                requested_item.0 = None;
+                ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, 
+                    [
+                        "The customer is leaving, but the burger needs to return to its people. To the toilet!",
+                        "A disgusted customer leaves as you have to rush to the toilet. Again."
+                    ].choose(&mut rng).unwrap().to_string()
+                ));
+            }
+            else {
+                ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, 
+                    [
+                        "You had to go to the toilet! Thankfully, the customer is waiting.",
+                        "Emergency toilet run! The customer will listen to all kinds of sounds...",
+                    ].choose(&mut rng).unwrap().to_string()
+                ));
+            }
+        }
+        else {
+            ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, "The customer left just in time for the toilet instruments to start playing!".to_string()));
+        }
+
+        *instructions.0.front_mut().unwrap() = Instruction::Wait(5.0);
+    }
+    else {
+        instructions.0.pop_front();
+    }
+}
+
 fn end_of_turn(
     mut commands: Commands,
     mut instructions: ResMut<Instructions>,
@@ -270,7 +377,8 @@ fn end_of_turn(
     mut ev_news: EventWriter<NewsFeedUpdate>,
     mut global_news: ResMut<GlobalNews>,
     mut war_news: ResMut<WarNews>,
-    mut turn: ResMut<Turn>
+    war: Res<War>,
+    mut customer_no: ResMut<CustomerNumber>,
 )
 {
     let Some(Instruction::EndOfTurn) = instructions.0.front() else { return };
@@ -291,11 +399,11 @@ fn end_of_turn(
         ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, format!("The customer is still waiting for {}.", request_str)));
     }
     else {
-        if turn.0 != 21 { // Turn 21 advances only on success
-            turn.0 += 1;
+        if customer_no.0 != 21 || war.0 { // Customer 21 advances only on success
+            customer_no.0 += 1;
         }
 
-        let new_item = Item::new_random(turn.0, prev_item.0);
+        let new_item = Item::new_random(customer_no.0, prev_item.0);
 
         if let Some(gnews) = prev_item.0.and_then(|item| item.global_side_effect()) {
             global_news.0.push_back(gnews.to_string());
@@ -305,15 +413,15 @@ fn end_of_turn(
         let request_str = new_item.request();
         requested_item.0 = Some((request_str.to_string(), new_item));
 
-        if turn.0 == 6 {
+        if customer_no.0 == 6 {
             ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, format!(r#""I won't cover the debt by just selling the legal stuff". "I should probably advertise other stuff"."#)));
         }
 
-        if turn.0 == 21 {
-            ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, format!("Turn {}/20: A shady figure just arrived! They requested {}.", turn.0, request_str)));
+        if customer_no.0 == 21 {
+            ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, format!("Turn {}/20: A shady figure just arrived! They requested {}.", customer_no.0, request_str)));
         }
         else {
-            ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, format!("Turn {}/20: A new customer just arrived! They requested {}.", turn.0, request_str)));
+            ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, format!("Turn {}/20: A new customer just arrived! They requested {}.", customer_no.0, request_str)));
         }
     }
 

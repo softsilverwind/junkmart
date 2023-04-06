@@ -3,6 +3,8 @@ use std::{
     iter
 };
 
+use rand::prelude::*;
+
 use bevy::{
     prelude::*,
     pbr::AmbientLight,
@@ -14,9 +16,11 @@ use bevy_egui::{
 };
 use bevy_tweening::Animator;
 
+use crate::plugins::post_process::PostProcessCamera;
+
 use super::{
     GameState,
-    components::Rotate,
+    components::{Rotate, PointerLight},
     events::{NewsFeedUpdate, NewsLevel},
     resources::{AssetList, Chests, HoveredChest, Instructions, NewsFeed},
     utils::{self, item::Item}
@@ -56,38 +60,42 @@ fn spawn_level(
     mut commands: Commands,
     assets: Res<AssetList>,
     mut ambient_light: ResMut<AmbientLight>,
-    mut chests: ResMut<Chests>
+    mut chests: ResMut<Chests>,
 )
 {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            color: Color::WHITE,
-            intensity: 40.0,
-            range: 6.0,
-            radius: 0.1,
-            shadows_enabled: false,
+    let mut rng = thread_rng();
+
+    commands.spawn(
+        PointLightBundle {
+            point_light: PointLight {
+                color: Color::WHITE,
+                intensity: 40.0,
+                range: 6.0,
+                radius: 0.1,
+                shadows_enabled: false,
+                ..default()
+            },
+            ..default()
+    })
+    .insert((
+        Camera3dBundle {
+            transform: *utils::CAMERA_REST_POS,
             ..default()
         },
+        PostProcessCamera
+    ));
+
+    commands.spawn(PointLightBundle {
+        point_light: PointLight { intensity: 0.0, ..*utils::POINTER_LIGHT },
+        transform: Transform::from_xyz(-1000.0, -1000.0, 1000.0),
         ..default()
     })
-    .insert(Camera3dBundle {
-        transform: *utils::CAMERA_REST_POS,
-        ..default()
-    });
-
-    let point_light = PointLight {
-        color: Color::WHITE,
-        intensity: 40.0,
-        range: 10.0,
-        radius: 0.5,
-        shadows_enabled: true,
-        ..default()
-    };
+    .insert(PointerLight);
 
     ambient_light.color = Color::WHITE;
     ambient_light.brightness = 0.10;
 
-    // Ideally search for lamp objects on the scene.
+    // Ideally search for lamp objects on the scene and do not use arbitrary numbers until it works.
 
     let light_pos = [
         Vec3::new(-4.0, 2.0, 3.5),
@@ -100,7 +108,7 @@ fn spawn_level(
 
     for pos in light_pos {
         commands.spawn(PointLightBundle {
-            point_light,
+            point_light: *utils::POINT_LIGHT,
             transform: Transform::from_translation(pos),
             ..default()
         });
@@ -119,6 +127,8 @@ fn spawn_level(
         .chain(iter::once(Item::Pill).cycle().take(3))
         .chain(iter::once(Item::Screwdriver).cycle().take(6))
         .collect();
+
+    items.shuffle(&mut rng);
 
     for x in 0..5 {
         for y in 0..4 {
@@ -210,6 +220,7 @@ fn mouse_click(
         instructions.0.push_back(Instruction::HandleEffects);
         instructions.0.push_back(Instruction::HideItem);
         instructions.0.push_back(Instruction::CameraToRest);
+        instructions.0.push_back(Instruction::HandleStatusEffects);
         instructions.0.push_back(Instruction::EndOfTurn);
         hovered_chest.0 = None;
     }
@@ -218,19 +229,20 @@ fn mouse_click(
 fn mouse_move(
     mut commands: Commands,
     windows: Query<&Window>,
-    cameras: Query<(&Camera, &GlobalTransform)>,
+    cameras: Query<(&Camera, &GlobalTransform), With<Camera3d>>,
     mut hovered_chest: ResMut<HoveredChest>,
     chests: Res<Chests>,
-    mut objects: Query<&mut Transform>,
-    instructions: Res<Instructions>
+    mut objects: Query<&mut Transform, Without<PointerLight>>,
+    instructions: Res<Instructions>,
+    mut pointer_light: Query<&mut Transform, With<PointerLight>>
 )
 {
     if instructions.0.len() > 0 {
         return;
     }
 
-    let window = windows.get_single().expect("No window found!");
-    let camera = cameras.get_single().unwrap();
+    let window = windows.single();
+    let camera = cameras.single();
 
     let Some(position) = window.cursor_position() else { return; };
 
@@ -238,6 +250,8 @@ fn mouse_move(
     let Some(dist) = ray.intersect_plane(Vec3::new(0.0, 0.0, 1.0), Vec3::Z) else { return; };
 
     let point = ray.get_point(dist);
+
+    pointer_light.single_mut().translation = Vec3 { z: 3.0, ..point };
 
     if (-2.9..2.9).contains(&point.x) && (-2.3..2.3).contains(&point.y) {
         let newpos = (((point.x + 2.9) / 1.2) as i32, ((point.y + 2.3) / 1.2) as i32);

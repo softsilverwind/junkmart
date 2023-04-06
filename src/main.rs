@@ -8,9 +8,8 @@ use bevy::{
 };
 use winit::window::Icon;
 
-// mod plugins;
+mod plugins;
 mod states;
-// mod utils;
 
 fn main()
 {
@@ -28,10 +27,11 @@ fn main()
                 ..default()
             })
             .set(LogPlugin {
-                filter: "warn,junkmart=debug".into(),
+                filter: "warn,wgpu_core=error,junkmart=debug".into(),
                 level: bevy::log::Level::DEBUG,
             })
         )
+        .add_plugin(plugins::post_process::PostProcessingPlugin)
         .add_plugin(states::StatePlugin)
         .add_plugin(bevy_kira_audio::AudioPlugin)
         .add_plugin(bevy_egui::EguiPlugin)

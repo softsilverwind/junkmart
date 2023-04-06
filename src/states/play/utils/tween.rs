@@ -1,17 +1,12 @@
 use std::{
-    f32::consts::FRAC_PI_2,
     iter,
     time::Duration
 };
 
 use bevy::prelude::*;
 use bevy_tweening::{*, lens::*};
-use lazy_static::lazy_static;
 
-lazy_static! {
-    pub static ref CAMERA_REST_POS: Transform = Transform::from_xyz(0.0, -8.0, 17.0).looking_at(Vec3::ZERO, Vec3::Y);
-    pub static ref CAMERA_FIRST_CHEST_POS: Transform = Transform::from_xyz(-2.4, -5.0, 1.0).with_rotation(Quat::from_rotation_x(FRAC_PI_2));
-}
+use super::{CAMERA_REST_POS, CAMERA_FIRST_CHEST_POS};
 
 pub fn lift(start: Vec3, height: f32, duration: u64) -> impl Tweenable<Transform>
 {

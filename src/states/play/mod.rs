@@ -12,6 +12,7 @@ mod components
     use bevy::prelude::*;
 
     #[derive(Component)] pub struct Rotate;
+    #[derive(Component)] pub struct PointerLight;
 }
 
 mod events

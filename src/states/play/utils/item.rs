@@ -137,7 +137,7 @@ impl Item
                 _ => panic!()
             },
             Pill => match rng.gen_range(0..4) {
-                0 => (r#""Mmm, a random pill!", you thought before eating it. Suddenly, your vision became funny."#.to_string(), StatusEffectEnable(Purple, 5)),
+                0 => (r#""Mmm, a random pill!", you thought before eating it. Suddenly, your vision became funny."#.to_string(), StatusEffectEnable(Trippy, 2)),
                 1 => (r#"After eating the pill, a sudden burst of energy ran through your body! "Must reorganize everything!" you cried, as you changed the position of all boxes!"#.to_string(), Reshuffle),
                 2 => ("You know the taste of this pill alright. It is Imodium!".to_string(), CureDiarrhea),
                 3 => {
@@ -160,7 +160,7 @@ impl Item
                     )
                 },
                 3 => {
-                    (r#""I have a great idea!" you muttered as you stuck the screwdriver in a power outlet. The electrocution stopped abruptly as the neighborhood transformer exploded. Power will be out for a while, who knows why..."#.to_string(), StatusEffectEnable(LightsOut, 5))
+                    (r#""I have a great idea!" you muttered as you stuck the screwdriver in a power outlet. The electrocution stopped abruptly as the neighborhood transformer exploded. Power will be out for a while, who knows why..."#.to_string(), StatusEffectEnable(LightsOut, 4))
                 }
                 _ => panic!()
             }
