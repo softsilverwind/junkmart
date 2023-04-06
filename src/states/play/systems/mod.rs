@@ -3,8 +3,6 @@ use std::{
     iter
 };
 
-use rand::prelude::*;
-
 use bevy::{
     prelude::*,
     pbr::AmbientLight,
@@ -63,8 +61,6 @@ fn spawn_level(
     mut chests: ResMut<Chests>,
 )
 {
-    let mut rng = thread_rng();
-
     commands.spawn(
         PointLightBundle {
             point_light: PointLight {
@@ -127,8 +123,6 @@ fn spawn_level(
         .chain(iter::once(Item::Pill).cycle().take(3))
         .chain(iter::once(Item::Screwdriver).cycle().take(6))
         .collect();
-
-    items.shuffle(&mut rng);
 
     for x in 0..5 {
         for y in 0..4 {

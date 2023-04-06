@@ -1,8 +1,7 @@
-use std::iter;
-
 use rand::{prelude::*, seq::SliceRandom};
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 use bevy_tweening::Animator;
+use bevy_kira_audio::prelude::*;
 
 use crate::{
     states::{
@@ -13,7 +12,7 @@ use crate::{
             resources::{
                 Instructions, Chests, ActiveItem, AssetList, RequestedItem, Money,
                 StatusEffects, CustomerNumber, PrevRequestedItem, GlobalNews, WarNews,
-                War
+                War, SoundList, Sound, Win
             },
             utils::{self, item::Item, StatusEffect}
         }
@@ -180,13 +179,12 @@ fn handle_effects(
     mut ev_news: EventWriter<NewsFeedUpdate>,
     mut money: ResMut<Money>,
     mut status_effects: ResMut<StatusEffects>,
-    mut chests: ResMut<Chests>,
     mut war_news: ResMut<WarNews>,
     mut war: ResMut<War>,
+    audio: Res<Audio>,
+    sounds: Res<SoundList>
 )
 {
-    let mut rng = thread_rng();
-
     let Some(Instruction::HandleEffects) = instructions.0.front() else { return };
 
     let Some((item, _)) = active_item.0 else { bevy::log::error!("Unreachable point reached!"); return };
@@ -194,9 +192,12 @@ fn handle_effects(
     let Some(req_item) = &requested_item.0 else {
         let funeral_cost = Money::new(5000);
         *money -= funeral_cost;
+        audio.play(sounds.gunshot.clone());
+        audio.play(sounds.large_hit.clone());
         ev_news.send(NewsFeedUpdate(NewsLevel::WRONG, "Oh no, the firearm discharged in your hands and T. Utorial lies dead inside a pool of blood...".to_string()));
         ev_news.send(NewsFeedUpdate(NewsLevel::WRONG, "After cleaning up, the realization hits you like that bullet hit Mr Utorial - you are on your own!".to_string()));
         ev_news.send(NewsFeedUpdate(NewsLevel::WRONG, format!("Cleaning up messed the boxes, while the funeral cost {funeral_cost}. Your new balance is {}.", *money)));
+        status_effects.0.insert(StatusEffect::Reshuffle, 1);
         *instructions.0.front_mut().unwrap() = Instruction::Wait(2.0);
 
         return;
@@ -207,6 +208,7 @@ fn handle_effects(
     let level = if req_item.1 == item {
         let gain = item.gain();
         *money += gain;
+        audio.play(sounds.correct.clone());
 
         response += &format!("Success! You found a box of {}, as the customer requested! They paid you {}!", item.found(), gain);
         response += &format!(" Your new balance is {}.", *money);
@@ -215,14 +217,29 @@ fn handle_effects(
             war_news.0.push_back("Dirty bomb exploded in the capital of neigboring country, they blame our army!".to_string());
             war_news.0.push_back("Our country retaliates with nukes! For the motherland!".to_string());
             war_news.0.push_back("World war! Every country launches nukes to everyone!".to_string());
-            war_news.0.push_back("Seriously, stop playing. You destroyed the world. Mankind is not the same anymore. You are a millionaire in a world where money has no meaning. Sleep tight.".to_string());
+            war_news.0.push_back("Seriously, stop playing. You won, but you destroyed the world in the process. Mankind is not the same anymore. You are a millionaire in a world where money has no meaning. Sleep tight.".to_string());
  
             war.0 = true;
         }
         requested_item.0 = None;
         NewsLevel::CORRECT
     } else {
-        let (text, side_effect) = item.side_effect();
+        let (text, side_effect, sound) = item.side_effect();
+        for s in sound {
+            match s {
+                Sound::Death => { audio.play(sounds.death.clone()); },
+                Sound::Eat => { audio.play(sounds.eat.clone()); },
+                Sound::Energized => { audio.play(sounds.energized.clone()); },
+                Sound::Fart => { audio.play(sounds.fart.clone()); },
+                Sound::Flush => { audio.play(sounds.flush.clone()); },
+                Sound::Gunshot => { audio.play(sounds.gunshot.clone()); },
+                Sound::LargeHit => { audio.play(sounds.large_hit.clone()); },
+                Sound::SadTrombone => { audio.play(sounds.sad_trombone.clone()); },
+                Sound::Siren => { audio.play(sounds.siren.clone()); },
+                Sound::SmallHit => { audio.play(sounds.small_hit.clone()); },
+                Sound::Strange => { audio.play(sounds.strange.clone()); }
+            }
+        }
 
         response += &format!("Customer requested {}, but you found {} instead! ", req_item.0, item.found());
         response += &text;
@@ -235,36 +252,20 @@ fn handle_effects(
             }
             utils::SideEffect::StatusEffectEnable(effect, turns) => { status_effects.0.insert(effect, turns); },
             utils::SideEffect::CureDiarrhea => if status_effects.0.remove(&StatusEffect::Diarrhea).is_some() {
+                audio.play(sounds.correct.clone());
                 response += " Your diarrhea was cured! The power of Imodium will turn the hands of fate!";
             },
             utils::SideEffect::ToggleCancer => {
                 if status_effects.0.remove(&StatusEffect::Cancer).is_some() {
+                    audio.play(sounds.correct.clone());
                     response += "The radiation cured your cancer!";
                 }
                 else {
                     status_effects.0.insert(StatusEffect::Cancer, i32::MAX);
                     response += "You got cancer! You probably won't find out before 5 years pass, though.";
                 }
-
             }
             utils::SideEffect::CustomerKill => requested_item.0 = None,
-            utils::SideEffect::Reshuffle => {
-                let mut items: Vec<Item> =
-                    iter::once(Item::Barrel).cycle().take(2)
-                    .chain(iter::once(Item::Burger).cycle().take(6))
-                    .chain(iter::once(Item::Gun).cycle().take(3))
-                    .chain(iter::once(Item::Pill).cycle().take(3))
-                    .chain(iter::once(Item::Screwdriver).cycle().take(6))
-                    .collect();
-
-                items.shuffle(&mut rng);
-
-                for x in 0..5 {
-                    for y in 0..4 {
-                        chests.0.get_mut(&(x, y)).unwrap().1 = items.pop().unwrap();
-                    }
-                }
-            },
         }
         NewsLevel::WRONG
     };
@@ -276,17 +277,29 @@ fn handle_effects(
 }
 
 fn handle_status_effects(
+    mut commands: Commands,
     mut instructions: ResMut<Instructions>,
     mut status_effects: ResMut<StatusEffects>,
+    mut active_item: ResMut<ActiveItem>,
     mut ev_news: EventWriter<NewsFeedUpdate>,
     mut requested_item: ResMut<RequestedItem>,
     mut lights: Query<&mut PointLight, (Without<Camera>, Without<PointerLight>)>,
     mut pointer_light: Query<&mut PointLight, With<PointerLight>>,
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
-    post_process_config: Res<PostProcessConfig>
+    mut chests: ResMut<Chests>,
+    post_process_config: Res<PostProcessConfig>,
+    audio: Res<Audio>,
+    sounds: Res<SoundList>
 )
 {
     let Some(Instruction::HandleStatusEffects) = instructions.0.front() else { return };
+
+    let Some((_, entity)) = active_item.0 else { bevy::log::error!("Unreachable point reached!"); return };
+
+    commands.entity(entity).despawn_recursive();
+    active_item.0 = None;
+
+    let mut wait = 0.0;
 
     let mut rng = thread_rng();
 
@@ -308,6 +321,27 @@ fn handle_status_effects(
             StatusEffect::Trippy => {
                 let post_process_mat = post_processing_materials.get_mut(&post_process_config.material_handle).unwrap();
                 post_process_mat.is_trippy = true;
+            },
+            StatusEffect::Reshuffle => {
+                let positions: Vec<(i32, i32)> = (0..5).flat_map(move |x| (0..4).map(move |y| (x, y))).collect();
+                let mut positions2 = positions.clone();
+                positions2.shuffle(&mut rng);
+                let mut new_chests = HashMap::new();
+
+                for ((ox, oy), (nx, ny)) in positions.into_iter().zip(positions2) {
+                    let chest = chests.0[&(ox, oy)];
+                    new_chests.insert((nx, ny), chest);
+
+                    let from = Vec3::new(-2.4 + ox as f32 * 1.2, -1.8 + oy as f32 * 1.2, 0.0);
+                    let to = Vec3::new(-2.4 + nx as f32 * 1.2, -1.8 + ny as f32 * 1.2, 0.0);
+                    let height = rng.gen_range(0.0..=2.4);
+
+                    commands.entity(chest.0).insert(Animator::new(utils::tween::move_between(from, to, height)));
+                }
+
+                chests.0 = new_chests;
+
+                wait += 1.0;
             },
             _ => ()
         }
@@ -333,11 +367,14 @@ fn handle_status_effects(
             }
             StatusEffect::Cancer => {
                 ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, format!("You mean to tell me that you played the game for {} turns. Suuuure buddy, sure you did. I'm not mad though, it means one of three things: a)  You scripted the game for {} turns (lol), b) cheated or c) read the source code. In all cases, thank you for giving my little game such interest. You are the real winner of this game, and you may screenshot this text as proof of your achievement!", i32::MAX, i32::MAX).to_string()));
-            }
+            },
+            _ => ()
         }
     }
 
     if status_effects.0.contains_key(&StatusEffect::Diarrhea) {
+        audio.play(sounds.flush.clone());
+
         if requested_item.0.is_some() {
             if rng.gen_range(0..=10) > 7 {
                 requested_item.0 = None;
@@ -361,7 +398,11 @@ fn handle_status_effects(
             ev_news.send(NewsFeedUpdate(NewsLevel::EVENT, "The customer left just in time for the toilet instruments to start playing!".to_string()));
         }
 
-        *instructions.0.front_mut().unwrap() = Instruction::Wait(5.0);
+        wait += 5.0;
+    }
+
+    if wait > 0.0 {
+        *instructions.0.front_mut().unwrap() = Instruction::Wait(wait);
     }
     else {
         instructions.0.pop_front();
@@ -369,30 +410,37 @@ fn handle_status_effects(
 }
 
 fn end_of_turn(
-    mut commands: Commands,
     mut instructions: ResMut<Instructions>,
-    mut active_item: ResMut<ActiveItem>,
     mut requested_item: ResMut<RequestedItem>,
     mut prev_item: ResMut<PrevRequestedItem>,
     mut ev_news: EventWriter<NewsFeedUpdate>,
     mut global_news: ResMut<GlobalNews>,
     mut war_news: ResMut<WarNews>,
     war: Res<War>,
+    mut win: ResMut<Win>,
     mut customer_no: ResMut<CustomerNumber>,
+    audio: Res<Audio>,
+    sounds: Res<SoundList>
 )
 {
     let Some(Instruction::EndOfTurn) = instructions.0.front() else { return };
-
-    let Some((_, entity)) = active_item.0 else { bevy::log::error!("Unreachable point reached!"); return };
-
-    commands.entity(entity).despawn_recursive();
-    active_item.0 = None;
 
     if let Some(gnews) = global_news.0.pop_front() {
         ev_news.send(NewsFeedUpdate(NewsLevel::EXTERNAL, gnews));
     }
     if let Some(gnews) = war_news.0.pop_front() {
+        if war_news.0.len() == 3 {
+            audio.play(sounds.gunshot.clone());
+        }
+        if war_news.0.len() > 0 {
+            audio.play(sounds.nuke_siren.clone());
+        }
         ev_news.send(NewsFeedUpdate(NewsLevel::EXTERNAL, gnews));
+    }
+
+    if !win.0 && war.0 && war_news.0.is_empty() {
+        win.0 = true;
+        audio.play(sounds.win_music.clone());
     }
 
     if let Some((request_str, _)) = &requested_item.0 {

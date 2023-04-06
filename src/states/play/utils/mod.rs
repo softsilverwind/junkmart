@@ -34,7 +34,8 @@ pub enum StatusEffect
     LightsOut,
     Trippy,
     Diarrhea,
-    Cancer
+    Cancer,
+    Reshuffle
 }
 
 pub enum SideEffect
@@ -45,5 +46,4 @@ pub enum SideEffect
     CureDiarrhea,
     ToggleCancer,
     CustomerKill,
-    Reshuffle
 }

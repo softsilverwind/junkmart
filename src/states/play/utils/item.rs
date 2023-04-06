@@ -5,7 +5,7 @@ use rand::{prelude::*, seq::SliceRandom};
 use super::{
     SideEffect,
     super::{
-        resources::Money,
+        resources::{Money, Sound},
         utils::StatusEffect
     }
 };
@@ -88,7 +88,7 @@ impl Item
         random_money(base)
     }
 
-    pub fn side_effect(&self) -> (String, SideEffect)
+    pub fn side_effect(&self) -> (String, SideEffect, Vec<Sound>)
     {
         use Item::*;
         use StatusEffect::*;
@@ -98,74 +98,126 @@ impl Item
 
         match self {
             Barrel => match rng.gen_range(0..5) {
-                0 => ("".to_string(), ToggleCancer),
+                0 => ("".to_string(), ToggleCancer, vec![Sound::Strange]),
                 1 => {
                     let money = random_money(200);
-                    (format!("You got scared and had to eat all the iodine tablets, didn't you? Restocking cost you {money}!"), MoneyLoss(money))
+                    (
+                        format!("You got scared and had to eat all the iodine tablets, didn't you? Restocking cost you {money}!"),
+                        MoneyLoss(money),
+                        vec![Sound::Eat]
+                    )
                 },
-                2 => ("The government raided the junkyard to find any more runaway radioactives! They sure left a mess and moved everything around!".to_string(), Reshuffle),
+                2 => (
+                    "The government raided the junkyard to find any more runaway radioactives! They sure left a mess and moved everything around!".to_string(),
+                    StatusEffectEnable(Reshuffle, 1),
+                    vec![Sound::Siren]
+                ),
                 3 => {
                     let money = random_money(2000);
-                    (format!("You had to go to the ER with severe radiation positioning. You are ok now, but the bill was {money}!"), MoneyLoss(money))
+                    (
+                        format!("You had to go to the ER with severe radiation positioning. You are ok now, but the bill was {money}!"),
+                        MoneyLoss(money),
+                        vec![Sound::SadTrombone]
+                    )
                 },
-                4 => ("The radioactive goo spilled and made a mess! Luckily the customer helped you clean up, before promptly dying from radiation poisoning.".to_string(), CustomerKill),
+                4 => (
+                    "The radioactive goo spilled and made a mess! Luckily the customer helped you clean up, before promptly dying from radiation poisoning.".to_string(),
+                    CustomerKill,
+                    vec![Sound::Death]
+                ),
                 _ => panic!()
             },
             Burger => match rng.gen_range(0..4) {
-                0 => (r#"You asked yourself, "what could go wrong" and ate the burger. That was when you felt your stomach slowly turning upside down."#.to_string(), StatusEffectEnable(Diarrhea, 3)),
+                0 => (
+                    r#"You asked yourself, "what could go wrong" and ate the burger. That was when you felt your stomach slowly turning upside down."#.to_string(),
+                    StatusEffectEnable(Diarrhea, 3),
+                    vec![Sound::Eat, Sound::Fart]
+                ),
                 1 => {
                     let money = random_money(500);
-                    (format!("Clearly, a bite won't hurt? After a severe food poisoning, the hospital thinks otherwise. Your idiocy cost {money}."), MoneyLoss(money))
+                    (
+                        format!("Clearly, a bite won't hurt? After a severe food poisoning, the hospital thinks otherwise. Your idiocy cost {money}."),
+                        MoneyLoss(money),
+                        vec![Sound::Eat, Sound::Siren]
+                    )
                 },
-                2 => (r#""Just a small bite," you muttered, "it won't hurt". Then you ran to the bathroom to puke. The customer got angry waiting and left."#.to_string(), CustomerKill),
-                3 => ("Mmm, tasty!".to_string(), NoEffect),
+                2 => (
+                    r#""Just a small bite," you muttered, "it won't hurt". Then you ran to the bathroom to puke. The customer got angry waiting and left."#.to_string(),
+                    CustomerKill,
+                    vec![Sound::Eat, Sound::Flush]
+                ),
+                3 => ("Mmm, tasty!".to_string(), NoEffect, vec![Sound::Eat]),
                 _ => panic!()
             },
             Gun => match rng.gen_range(0..4) {
                 0 => {
                     let money = random_money(1000);
-                    (format!("You accidentally shot yourself in the foot! An ambulance is on the way! Better have the {money} in hand!"), MoneyLoss(money))
+                    (
+                        format!("You accidentally shot yourself in the foot! An ambulance is on the way! Better have the {money} in hand!"),
+                        MoneyLoss(money),
+                        vec![Sound::Gunshot, Sound::LargeHit, Sound::Siren]
+                    )
                 },
-                1 => ("The bullet flew across the junkyard, ricocheting on walls, chests and the stop sign, finally arriving at the customers head.".to_string(), CustomerKill),
+                1 => (
+                    "The bullet flew across the junkyard, ricocheting on walls, chests and the stop sign, finally arriving at the customers head.".to_string(),
+                    CustomerKill,
+                    vec![Sound::Gunshot, Sound::Death]
+                ),
                 2 => {
                     let money = random_money(250);
-                    (format!("The illegal firearm discharge was reported to the police, the fine is {money}!"), MoneyLoss(money))
+                    (format!("The illegal firearm discharge was reported to the police, the fine is {money}!"), MoneyLoss(money), vec![Sound::Gunshot, Sound::Siren])
                 }
                 3 => {
-                    ("The bullet flew across the junkyard, ricocheting on walls, chests and the stop sign, finally exiting the building through the window. Let's hope nobody saw that.".to_string(), NoEffect)
+                    (
+                        "The bullet flew across the junkyard, ricocheting on walls, chests and the stop sign, finally exiting the building through the window. Let's hope nobody saw that.".to_string(),
+                        NoEffect,
+                        vec![Sound::Gunshot]
+                    )
                 }
                 _ => panic!()
             },
             Pill => match rng.gen_range(0..4) {
-                0 => (r#""Mmm, a random pill!", you thought before eating it. Suddenly, your vision became funny."#.to_string(), StatusEffectEnable(Trippy, 2)),
-                1 => (r#"After eating the pill, a sudden burst of energy ran through your body! "Must reorganize everything!" you cried, as you changed the position of all boxes!"#.to_string(), Reshuffle),
-                2 => ("You know the taste of this pill alright. It is Imodium!".to_string(), CureDiarrhea),
+                0 => (r#""Mmm, a random pill!", you thought before eating it. Suddenly, your vision became funny."#.to_string(), StatusEffectEnable(Trippy, 2), vec![Sound::Strange]),
+                1 => (
+                    r#"After eating the pill, a sudden burst of energy ran through your body! "Must reorganize everything!" you cried, as you changed the position of all boxes!"#.to_string(),
+                    StatusEffectEnable(Reshuffle, 1),
+                    vec![Sound::Energized]
+                ),
+                2 => ("You know the taste of this pill alright. It is Imodium!".to_string(), CureDiarrhea, vec![Sound::Eat]),
                 3 => {
                     let money = random_money(1500);
-                    (format!("An inspector saw you holding this illegal drug. You paid him {money}. Was it a fine or a bribe? Was he a real inspector? Who knows."), MoneyLoss(money))
+                    (format!(
+                        "An inspector saw you holding this illegal drug. You paid him {money}. Was it a fine or a bribe? Was he a real inspector? Who knows."),
+                        MoneyLoss(money),
+                        vec![Sound::Siren]
+                    )
                 },
                 _ => panic!()
             }
             Screwdriver => match rng.gen_range(0..4) {
                 0 => {
                     let money = random_money(100);
-                    (format!("You got hurt with this rusty screwdriver and must get a tetanus shot! Have {money} at the ready!"), MoneyLoss(money))
+                    (format!("You got hurt with this rusty screwdriver and must get a tetanus shot! Have {money} at the ready!"), MoneyLoss(money), vec![Sound::SmallHit])
                 },
-                1 => ("As this wasn't what you were searching for, you threw it behind you. The scream of the customer confirmed that the hit was fatal.".to_string(), CustomerKill),
+                1 => (
+                    "As this wasn't what you were searching for, you threw it behind you. The scream of the customer confirmed that the hit was fatal.".to_string(),
+                    CustomerKill,
+                    vec![Sound::LargeHit, Sound::Death]
+                ),
                 2 => {
                     let money = random_money(1000);
                     (
                         format!("As this wasn't what you were searching for, you threw it behind you. The scream of the customer confirmed that the hit was not fatal; You got sued for {money} instead."),
-                        MoneyLoss(money)
+                        MoneyLoss(money),
+                        vec![Sound::SmallHit, Sound::Siren]
                     )
                 },
                 3 => {
-                    (r#""I have a great idea!" you muttered as you stuck the screwdriver in a power outlet. The electrocution stopped abruptly as the neighborhood transformer exploded. Power will be out for a while, who knows why..."#.to_string(), StatusEffectEnable(LightsOut, 4))
+                    (r#""I have a great idea!" you muttered as you stuck the screwdriver in a power outlet. The electrocution stopped abruptly as the neighborhood transformer exploded. Power will be out for a while, who knows why..."#.to_string(), StatusEffectEnable(LightsOut, 4), vec![Sound::Gunshot])
                 }
                 _ => panic!()
             }
         }
-
     }
 
     pub fn global_side_effect(&self) -> Option<&'static str>
@@ -188,7 +240,7 @@ impl Item
             Pill => &[
                 "Horde of addicts storm police station, fatalities at five and still counting!",
                 "CEO of large company overdosed on unidentified drugs, read page 5 for more!",
-                "Mysterious drug completely cures patient from both cancer and AIDS, scientists baffled, drug is impossible to recreate!"
+                "Mysterious drug completely cures patient from both cancer and AIDS, scientists baffled, drug is impossible to synthesize in a lab!"
             ],
             Screwdriver => &[
                 "Rapist with screwdriver shot and killed before he could commit more atrocities!",

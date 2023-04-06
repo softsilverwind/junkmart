@@ -33,7 +33,9 @@ impl Plugin for PlayPlugin
         app
             .add_event::<events::NewsFeedUpdate>()
             .add_loading_state(LoadingState::new(GameState::LoadPlay).continue_to_state(GameState::Play))
-            .add_collection_to_loading_state::<_, resources::AssetList>(GameState::LoadPlay);
+            .add_collection_to_loading_state::<_, resources::AssetList>(GameState::LoadPlay)
+            .add_collection_to_loading_state::<_, resources::SoundList>(GameState::LoadPlay)
+        ;
 
         resources::init_resources(app);
         systems::add_systems(app);
