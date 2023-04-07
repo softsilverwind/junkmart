@@ -1488,9 +1488,9 @@ dependencies = [
 
 [[package]]
 name = "embed-resource"
-version = "2.1.1"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80663502655af01a2902dff3f06869330782267924bf1788410b74edcd93770a"
+checksum = "e62abb876c07e4754fae5c14cafa77937841f01740637e17d78dc04352f32a5e"
 dependencies = [
  "cc",
  "rustc_version",
@@ -1708,9 +1708,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c05aeb6a22b8f62540c194aac980f2115af067bfe15a0734d7277a768d396b31"
+checksum = "c85e1d9ab2eadba7e5040d4e09cbd6d072b76a557ad64e797c2cb9d4da21d7e4"
 dependencies = [
  "cfg-if",
  "js-sys",
@@ -2930,15 +2930,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_spanned"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0efd8caf556a6cebd3b285caf480045fcc1ac04f6bd786b09a6f11af30c4fcf4"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "sharded-slab"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3216,14 +3207,11 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "toml"
-version = "0.7.3"
+version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b403acf6f2bb0859c93c7f0d967cb4a75a7ac552100f9322faf64dc047669b21"
+checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
 dependencies = [
  "serde",
- "serde_spanned",
- "toml_datetime",
- "toml_edit",
 ]
 
 [[package]]
@@ -3231,9 +3219,6 @@ name = "toml_datetime"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ab8ed2edee10b50132aed5f331333428b011c99402b5a534154ed15746f9622"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "toml_edit"
@@ -3242,8 +3227,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "239410c8609e8125456927e6707163a3b1fdb40561e4b803bc041f466ccfdc13"
 dependencies = [
  "indexmap",
- "serde",
- "serde_spanned",
  "toml_datetime",
  "winnow",
 ]
@@ -3937,11 +3920,10 @@ dependencies = [
 
 [[package]]
 name = "winreg"
-version = "0.11.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76a1a57ff50e9b408431e8f97d5456f2807f8eb2a2cd79b06068fc87f8ecf189"
+checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
 dependencies = [
- "cfg-if",
  "winapi",
 ]
 
