@@ -22,6 +22,11 @@ fn main()
                     title: "Junk-Mart".to_string(),
                     resolution: (800., 600.).into(),
                     canvas: Some("#bevy".to_owned()),
+                    resize_constraints: WindowResizeConstraints {
+                        min_width: 640.0,
+                        min_height: 480.0,
+                        ..default()
+                    },
                     ..default()
                 }),
                 ..default()

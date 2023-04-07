@@ -7,6 +7,7 @@ mod play;
 pub enum GameState
 {
     #[default]
+    LoadMainMenu,
     MainMenu,
     LoadPlay,
     Play,

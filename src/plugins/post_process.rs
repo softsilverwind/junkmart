@@ -72,8 +72,8 @@ fn setup_post_processing(
     let window = windows.single();
 
     let size = Extent3d {
-        width: window.resolution.physical_width(),
-        height: window.resolution.physical_height(),
+        width: window.width() as u32,
+        height: window.height() as u32,
         ..default()
     };
 
@@ -170,8 +170,8 @@ fn fix_resize(
         let window = windows.get(ev.window).unwrap();
 
         let size = Extent3d {
-            width: window.resolution.physical_width(),
-            height: window.resolution.physical_height(),
+            width: window.width() as u32,
+            height: window.height() as u32,
             ..default()
         };
 

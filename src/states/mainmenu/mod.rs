@@ -2,11 +2,16 @@ use bevy::{prelude::*, app::AppExit};
 use bevy_egui::{
     EguiContexts,
     egui::{
-        Align, RichText, CentralPanel, Layout, Color32, Sense, Label
+        Align, RichText, CentralPanel, Layout, Color32, Sense, Label, TextureId
     }
 };
+use bevy_asset_loader::prelude::*;
 
 use super::GameState;
+
+mod resources;
+
+use resources::AssetList;
 
 pub struct MainMenuPlugin;
 
@@ -14,16 +19,26 @@ impl Plugin for MainMenuPlugin
 {
     fn build(&self, app: &mut App)
     {
-        app.add_system(ui.in_set(OnUpdate(GameState::MainMenu)));
+        app
+            .add_system(ui.in_set(OnUpdate(GameState::MainMenu)))
+            .add_loading_state(LoadingState::new(GameState::LoadMainMenu).continue_to_state(GameState::MainMenu))
+            .add_collection_to_loading_state::<_, AssetList>(GameState::LoadMainMenu)
+        ;
     }
 }
 
 fn ui(
     mut contexts: EguiContexts,
     mut exit: EventWriter<AppExit>,
-    mut next_state: ResMut<NextState<GameState>>
+    mut next_state: ResMut<NextState<GameState>>,
+    mut image: Local<Option<TextureId>>,
+    asset_list: Res<AssetList>,
 )
 {
+    if image.is_none() {
+        *image = Some(contexts.add_image(asset_list.mainmenu_image.clone_weak()));
+    }
+
     let ctx = contexts.ctx_mut();
 
     CentralPanel::default().show(ctx, |ui| {
@@ -32,6 +47,8 @@ fn ui(
             ui.label(RichText::new("Where dreams come to die").strikethrough());
             ui.label(RichText::new("Where we fnid the itmespbb").strikethrough());
             ui.label(RichText::new("We will find what you ask, or die trying!").size(21.0).color(Color32::LIGHT_BLUE));
+            ui.add_space(20.0);
+            ui.image(image.unwrap(), [400.0, 225.0])
         });
 
         ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
