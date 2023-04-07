@@ -1,32 +1,40 @@
 use bevy::{
+    ecs::query::QuerySingleError,
     prelude::*,
-    sprite::{Material2d, Material2dKey, Material2dPlugin, MaterialMesh2dBundle, Mesh2dHandle},
-    render::{render_resource::{RenderPipelineDescriptor, SpecializedMeshPipelineError, AsBindGroup, ShaderRef, TextureDimension, TextureUsages, TextureFormat, TextureDescriptor, Extent3d},
-    mesh::MeshVertexBufferLayout, texture::BevyDefault, view::RenderLayers, camera::RenderTarget},
     reflect::TypeUuid,
+    render::{
+        camera::RenderTarget,
+        mesh::MeshVertexBufferLayout,
+        render_resource::{
+            AsBindGroup, Extent3d, RenderPipelineDescriptor, ShaderRef,
+            SpecializedMeshPipelineError, TextureDescriptor, TextureDimension, TextureFormat,
+            TextureUsages,
+        },
+        texture::BevyDefault,
+        view::RenderLayers,
+    },
+    sprite::{Material2d, Material2dKey, Material2dPlugin, MaterialMesh2dBundle, Mesh2dHandle},
     window::WindowResized,
-    ecs::query::QuerySingleError
 };
 
-#[derive(Component)] pub struct PostProcessCamera;
+#[derive(Component)]
+pub struct PostProcessCamera;
 
 #[derive(Default, Resource)]
-pub struct PostProcessConfig
-{
+pub struct PostProcessConfig {
     pub material_handle: Handle<PostProcessingMaterial>,
     pub image_handle: Handle<Image>,
-    pub quad_entity: Option<Entity>
+    pub quad_entity: Option<Entity>,
 }
 
 #[derive(AsBindGroup, TypeUuid, Clone)]
 #[uuid = "2fe1c4d9-8d0f-4321-a6eb-2eade51b647c"]
 #[bind_group_data(TrippyKey)]
-pub struct PostProcessingMaterial
-{
+pub struct PostProcessingMaterial {
     #[texture(0)]
     #[sampler(1)]
     source_image: Handle<Image>,
-    pub is_trippy: bool
+    pub is_trippy: bool,
 }
 
 #[derive(Eq, PartialEq, Hash, Clone)]
@@ -37,21 +45,21 @@ pub struct TrippyKey {
 impl From<&PostProcessingMaterial> for TrippyKey {
     fn from(material: &PostProcessingMaterial) -> Self {
         Self {
-            is_trippy: material.is_trippy
+            is_trippy: material.is_trippy,
         }
     }
 }
 
-impl Material2d for PostProcessingMaterial
-{
-    fn fragment_shader() -> ShaderRef { "shaders/trippy.wgsl".into() }
+impl Material2d for PostProcessingMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/trippy.wgsl".into()
+    }
 
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayout,
         key: Material2dKey<Self>,
-    ) -> Result<(), SpecializedMeshPipelineError>
-    {
+    ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.is_trippy {
             let fragment = descriptor.fragment.as_mut().unwrap();
             fragment.shader_defs.push("IS_TRIPPY".into());
@@ -66,9 +74,8 @@ fn setup_post_processing(
     mut images: ResMut<Assets<Image>>,
     windows: Query<&Window>,
     mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
-    mut post_process_config: ResMut<PostProcessConfig>
-)
-{
+    mut post_process_config: ResMut<PostProcessConfig>,
+) {
     let window = windows.single();
 
     let size = Extent3d {
@@ -106,22 +113,23 @@ fn setup_post_processing(
 
     let material_handle = post_processing_materials.add(PostProcessingMaterial {
         source_image: image_handle.clone(),
-        is_trippy: false
+        is_trippy: false,
     });
 
-    let quad_entity = commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: quad_handle.into(),
-            material: material_handle.clone(),
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1.5),
+    let quad_entity = commands
+        .spawn((
+            MaterialMesh2dBundle {
+                mesh: quad_handle.into(),
+                material: material_handle.clone(),
+                transform: Transform {
+                    translation: Vec3::new(0.0, 0.0, 1.5),
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        },
-        render_layer
-    ))
-    .id();
+            render_layer,
+        ))
+        .id();
 
     commands.spawn((
         Camera2dBundle {
@@ -137,24 +145,26 @@ fn setup_post_processing(
     *post_process_config = PostProcessConfig {
         material_handle,
         image_handle,
-        quad_entity: Some(quad_entity)
+        quad_entity: Some(quad_entity),
     }
 }
 
 fn setup_post_process_camera(
     mut cameras: Query<&mut Camera, Added<PostProcessCamera>>,
     post_process_config: Res<PostProcessConfig>,
-)
-{
+) {
     let mut camera = match cameras.get_single_mut() {
         Ok(camera) => camera,
         Err(QuerySingleError::MultipleEntities(_)) => panic!("Multiple cameras detected!"),
-        Err(QuerySingleError::NoEntities(_)) => { return ; },
+        Err(QuerySingleError::NoEntities(_)) => {
+            return;
+        }
     };
 
     camera.target = RenderTarget::Image(post_process_config.image_handle.clone());
 }
 
+#[allow(clippy::too_many_arguments)]
 fn fix_resize(
     mut commands: Commands,
     mut ev_resize: EventReader<WindowResized>,
@@ -163,9 +173,8 @@ fn fix_resize(
     mut meshes: ResMut<Assets<Mesh>>,
     windows: Query<&Window>,
     mut image_events: EventWriter<AssetEvent<Image>>,
-    mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>
-)
-{
+    mut post_processing_materials: ResMut<Assets<PostProcessingMaterial>>,
+) {
     if let Some(ev) = ev_resize.iter().last() {
         let window = windows.get(ev.window).unwrap();
 
@@ -187,9 +196,7 @@ fn fix_resize(
             .get_entity(post_process_config.quad_entity.unwrap())
             .unwrap()
             .remove::<Mesh2dHandle>()
-            .insert(
-                Mesh2dHandle(quad_handle.into())
-            );
+            .insert(Mesh2dHandle(quad_handle));
 
         image_events.send(AssetEvent::Modified {
             handle: post_process_config.image_handle.clone(),
@@ -200,17 +207,12 @@ fn fix_resize(
 
 pub struct PostProcessingPlugin;
 
-impl Plugin for PostProcessingPlugin
-{
-    fn build(&self, app: &mut App)
-    {
-        app
-            .init_resource::<PostProcessConfig>()
+impl Plugin for PostProcessingPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PostProcessConfig>()
             .add_startup_system(setup_post_processing)
             .add_system(setup_post_process_camera)
             .add_system(fix_resize)
-            .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default())
-        ;
+            .add_plugin(Material2dPlugin::<PostProcessingMaterial>::default());
     }
 }
-

@@ -1,40 +1,35 @@
 use std::io::Cursor;
 
-use bevy::{
-    prelude::*,
-    log::LogPlugin,
-    window::PrimaryWindow,
-    winit::WinitWindows
-};
+use bevy::{log::LogPlugin, prelude::*, window::PrimaryWindow, winit::WinitWindows};
 use winit::window::Icon;
 
 mod plugins;
 mod states;
 
-fn main()
-{
+fn main() {
     App::new()
         .insert_resource(Msaa::Off)
         .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.2)))
-        .add_plugins(DefaultPlugins
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "Junk-Mart".to_string(),
-                    resolution: (800., 600.).into(),
-                    canvas: Some("#bevy".to_owned()),
-                    resize_constraints: WindowResizeConstraints {
-                        min_width: 640.0,
-                        min_height: 480.0,
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Junk-Mart".to_string(),
+                        resolution: (800., 600.).into(),
+                        canvas: Some("#bevy".to_owned()),
+                        resize_constraints: WindowResizeConstraints {
+                            min_width: 640.0,
+                            min_height: 480.0,
+                            ..default()
+                        },
                         ..default()
-                    },
+                    }),
                     ..default()
+                })
+                .set(LogPlugin {
+                    filter: "warn,wgpu_core=error,junkmart=debug".into(),
+                    level: bevy::log::Level::DEBUG,
                 }),
-                ..default()
-            })
-            .set(LogPlugin {
-                filter: "warn,wgpu_core=error,junkmart=debug".into(),
-                level: bevy::log::Level::DEBUG,
-            })
         )
         .add_plugin(plugins::post_process::PostProcessingPlugin)
         .add_plugin(states::StatePlugin)

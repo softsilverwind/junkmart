@@ -4,8 +4,7 @@ mod mainmenu;
 mod play;
 
 #[derive(States, Default, Clone, Eq, PartialEq, Debug, Hash)]
-pub enum GameState
-{
+pub enum GameState {
     #[default]
     LoadMainMenu,
     MainMenu,
@@ -13,16 +12,12 @@ pub enum GameState
     Play,
 }
 
-
 pub struct StatePlugin;
 
-impl Plugin for StatePlugin
-{
-    fn build(&self, app: &mut App)
-    {
+impl Plugin for StatePlugin {
+    fn build(&self, app: &mut App) {
         app.add_state::<GameState>()
             .add_plugin(mainmenu::MainMenuPlugin)
             .add_plugin(play::PlayPlugin);
     }
 }
-

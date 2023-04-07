@@ -8,9 +8,9 @@ This game was created as part of the third Bevy Jam: https://itch.io/jam/bevy-ja
 
 This game (obviously) has no official age rating. Be warned that it might contain the following:
 
-- Dark humor
+- Dark humour
 - Drug and violence references
-- Immature humor (#sorry_not_sorry)
+- Immature humour (#sorry_not_sorry)
 
 ## Gameplay
 
@@ -35,4 +35,4 @@ Finally, a special thank you to the following teams/persons for providing the to
 * https://github.com/NiklasEi/bevy_game_template - The reason this game is playable on platforms besides Linux.
 * https://lmms.io/ - For the instrumental sound effects.
 * https://www.blender.org/ - For the 3d models.
-* http://www.kolourpaint.org/ - Yes, the textures were really made using kolorpaint.
+* http://www.kolourpaint.org/ - Yes, the textures were really made using kolourpaint.

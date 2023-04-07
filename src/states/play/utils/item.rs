@@ -3,41 +3,37 @@ use bevy::utils::HashSet;
 use rand::{prelude::*, seq::SliceRandom};
 
 use super::{
-    SideEffect,
     super::{
         resources::{Money, Sound},
-        utils::StatusEffect
-    }
+        utils::StatusEffect,
+    },
+    SideEffect,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Item
-{
+pub enum Item {
     Barrel,
     Burger,
     Gun,
     Pill,
-    Screwdriver
+    Screwdriver,
 }
 
-fn random_money(base: i32) -> Money
-{
+fn random_money(base: i32) -> Money {
     Money::new(base + thread_rng().gen_range(-base / 20..=base / 20))
 }
 
-impl Item
-{
-    pub fn new_random(turn: i32, prev_item: Option<Item>) -> Self
-    {
+impl Item {
+    pub fn new_random(turn: i32, prev_item: Option<Item>) -> Self {
         use Item::*;
         let items: &[Item] = match turn {
             1..=5 => &[Burger, Screwdriver],
             6..=20 => &[Burger, Screwdriver, Gun, Pill],
             21 => &[Barrel],
-            _ => &[Burger, Screwdriver, Gun, Pill]
+            _ => &[Burger, Screwdriver, Gun, Pill],
         };
 
-        let mut set: HashSet<Item> = items.into_iter().copied().collect();
+        let mut set: HashSet<Item> = items.iter().copied().collect();
 
         if let Some(item) = prev_item {
             set.remove(&item);
@@ -46,53 +42,53 @@ impl Item
         set.into_iter().choose(&mut thread_rng()).unwrap()
     }
 
-    pub fn request(&self) -> &'static str
-    {
+    pub fn request(&self) -> &'static str {
         use Item::*;
         let words: &[&'static str] = match self {
             Barrel => &["a radioactive barrel", "a barrel with radioactive goo"],
             Burger => &["a shipment of burgers", "food", "edibles"],
             Gun => &["guns", "pieces that go bang bang", "weapons"],
             Pill => &["a pill", "pills", "drugs"],
-            Screwdriver => &["a screwdriver", "screwdrivers"]
+            Screwdriver => &["a screwdriver", "screwdrivers"],
         };
 
         words.choose(&mut thread_rng()).unwrap()
     }
 
-    pub fn found(&self) -> &'static str
-    {
+    pub fn found(&self) -> &'static str {
         use Item::*;
         let words: &[&'static str] = match self {
-            Barrel => &["radioactive barrels", "barrels with radioactive goo", "barrels with the nuclear trefoil sign"],
+            Barrel => &[
+                "radioactive barrels",
+                "barrels with radioactive goo",
+                "barrels with the nuclear trefoil sign",
+            ],
             Burger => &["burgers", "junk food", "food"],
             Gun => &["guns", "pistols", "firearms"],
             Pill => &["pills", "drugs", "medicine"],
-            Screwdriver => &["screwdrivers"]
+            Screwdriver => &["screwdrivers"],
         };
 
         words.choose(&mut thread_rng()).unwrap()
     }
 
-    pub fn gain(&self) -> Money
-    {
+    pub fn gain(&self) -> Money {
         use Item::*;
         let base = match self {
             Barrel => 8_000_000,
             Burger => 10,
             Gun => 300,
             Pill => 400,
-            Screwdriver => 10
+            Screwdriver => 10,
         };
 
         random_money(base)
     }
 
-    pub fn side_effect(&self) -> (String, SideEffect, Vec<Sound>)
-    {
+    pub fn side_effect(&self) -> (String, SideEffect, Vec<Sound>) {
         use Item::*;
-        use StatusEffect::*;
         use SideEffect::*;
+        use StatusEffect::*;
 
         let mut rng = thread_rng();
 
@@ -220,8 +216,7 @@ impl Item
         }
     }
 
-    pub fn global_side_effect(&self) -> Option<&'static str>
-    {
+    pub fn global_side_effect(&self) -> Option<&'static str> {
         use Item::*;
 
         let choices: &[&'static str] = match self {
