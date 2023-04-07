@@ -2,7 +2,7 @@
 
 This is a place where you can find anything! Well, I am the one to find it. You just ask, I will go back there and try to... Damn, you didn't ask for this pill, did you? I should probably consume it before the inspector comes around... Why is everything purple now?
 
-This game was created as part of the third Bevy Jam: https://itch.io/jam/bevy-jam-3
+This game was created as part of the third Bevy Jam: https://itch.io/jam/bevy-jam-3. The theme of the jam is side effects.
 
 # A word of caution
 
