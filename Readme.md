@@ -36,3 +36,8 @@ Finally, a special thank you to the following teams/persons for providing the to
 * https://lmms.io/ - For the instrumental sound effects.
 * https://www.blender.org/ - For the 3d models.
 * http://www.kolourpaint.org/ - Yes, the textures were really made using kolourpaint.
+* https://github.com/mvlabat/bevy_egui
+* https://github.com/djeedai/bevy_tweening
+* https://github.com/NiklasEi/bevy_asset_loader
+* https://github.com/NiklasEi/bevy_kira_audio
+* And last but not least: https://www.rust-lang.org/ . We sometimes forget that we stand on the shoulders of giants.
